@@ -1,0 +1,68 @@
+{
+    "ip_servidor_central": "192.168.0.53",
+    "porta_servidor_central": 10000,
+    "ip_servidor_distribuido": "192.168.0.52",
+    "porta_servidor_distribuido": 10200,
+    "nome": "1º Andar",
+    "outputs": [
+        {
+          "type": "lampada",
+          "tag": "Lâmpada da Sala 101",
+          "gpio": 22
+        },
+        {
+            "type": "lampada",
+            "tag": "Lâmpada da Sala 102",
+            "gpio": 25
+        },
+        {
+          "type": "lampada",
+          "tag": "Lâmpadas do Corredor",
+          "gpio": 8
+        },
+        {
+            "type": "ar-condicionado",
+            "tag": "Ar-Condicionado (1º Andar)",
+            "gpio": 12
+        }
+    ],
+    "inputs": [
+        {
+          "type": "presenca",
+          "tag": "Sensor de Presença",
+          "gpio": 18
+        },
+        {
+            "type": "fumaca",
+            "tag": "Sensor de Fumaça",
+            "gpio": 24
+        },
+        {
+          "type": "janela",
+          "tag": "Sensor de Janela 101",
+          "gpio": 5
+        },
+        {
+            "type": "janela",
+            "tag": "Sensor de Janela 102",
+            "gpio": 6
+        },
+        {
+          "type": "contagem",
+          "tag": "Sensor de Contagem de Pessoas Entrando no 2º Andar",
+          "gpio": 2
+        },
+        {
+          "type": "contagem",
+          "tag": "Sensor de Contagem de Pessoas Saindo do 2º Andar",
+          "gpio": 3
+        }
+    ],
+    "sensor_temepratura":[
+        {
+          "model": "dth22",
+          "tag": "Sensor de Temperatura e Umidade",
+          "gpio": 21
+        }
+    ]
+}

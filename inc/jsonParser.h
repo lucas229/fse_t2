@@ -1,0 +1,28 @@
+#ifndef JSON_PARSER
+#define JSON_PARSER
+
+#include "cJSON.h"
+
+typedef struct NetworkInfo {
+    char *centralServerIp;
+    int centralServerPort;
+    char *distServerIp;
+    int distServerPort;
+    char *serverName;
+} NetworkInfo;
+
+typedef struct Sensor {
+    char *type;
+    char *tag;
+    int gpio;
+} Sensor;
+
+void initJson(char *text);
+int parseArray(Sensor **sensors, char *key);
+void parseNetworkInfo(NetworkInfo *netInfo);
+void parseDhtInfo(Sensor *dht);
+void saveSensorData(cJSON *item, Sensor *sensor);
+void saveString(cJSON *item, char *key, char **string);
+void clearJson();
+
+#endif
