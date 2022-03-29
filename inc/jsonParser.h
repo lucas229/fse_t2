@@ -15,6 +15,7 @@ typedef struct Sensor {
     char *type;
     char *tag;
     int gpio;
+    int status;
 } Sensor;
 
 void initJson(char *text);
@@ -24,5 +25,6 @@ void parseDhtInfo(Sensor *dht);
 void saveSensorData(cJSON *item, Sensor *sensor);
 void saveString(cJSON *item, char *key, char **string);
 void clearJson();
+char *createJson(Sensor *sensors, int *pins, int size, char *key);
 
 #endif

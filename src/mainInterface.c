@@ -7,10 +7,10 @@
 #include "mainInterface.h"
 #include "jsonParser.h"
 
-NetworkInfo netInfo;
-Sensor *outputs;
-Sensor *inputs;
-Sensor dht;
+NetworkInfo netInfo = {0, 0, 0, 0, 0};
+Sensor *outputs = NULL;
+Sensor *inputs = NULL;
+Sensor dht = {0, 0, 0, 0};
 int outputsSize = 0, inputsSize = 0, entryIndex = -1, exitIndex = -1;
 
 void initServer() {
@@ -51,32 +51,43 @@ void readSensors() {
     for(int i = 0; i < inputsSize; i++) {
         pinMode(inputs[i].gpio, INPUT);
     }
-    int counter = 11, lastEntry = 0, lastExit = 0;
+
+    int counter = 1;
     while(1) {
-        system("clear");
-        printf("Contador: %d\n", counter);
-        if(counter == 11) {
+        int pins[30], size = 0;
+        if(counter == 1) {
             for(int i = 0; i < inputsSize; i++) {
-                if(i != entryIndex && i != exitIndex) {
-                    printf("%s: %d\n", inputs[i].tag, digitalRead(inputs[i].gpio));
+                if(i == entryIndex || i == exitIndex) {
+                    continue;
                 }
+                checkInputStatus(pins, &size, i);
             }
-            counter = 0;
         }
-        int entry = digitalRead(inputs[entryIndex].gpio), exit = digitalRead(inputs[exitIndex].gpio);
-        printf("Sensor de entrada de pessoas: %d", entry);
-        if(entry != lastEntry) {
-            lastEntry = entry;
-            printf(" (Mudou)");
+        checkInputStatus(pins, &size, entryIndex);
+        checkInputStatus(pins, &size, exitIndex);
+
+        if(size > 0) {
+            char *text = createJson(inputs, pins, size, "inputs");
+            printf("\n__________________________________________\n%s\n__________________________________________\n", text);
+            free(text);
         }
-        printf("\nSensor de saída de pessoas: %d", exit);
-        if(exit != lastExit) {
-            lastExit = exit;
-            printf(" (Mudou)");
-        }
-        printf("\n\n");
+
         counter++;
+        if(counter == 11) {
+            counter = 1;
+        }
         usleep(50000);
+    }
+}
+
+void checkInputStatus(int *pins, int *size, int index) {
+    int status = digitalRead(inputs[index].gpio);
+    if(inputs[index].status != status) {
+        inputs[index].status = !inputs[index].status;
+        if(status == 0 && (index == entryIndex || index == exitIndex)) {
+            return;
+        }
+        pins[(*size)++] = index;
     }
 }
 
