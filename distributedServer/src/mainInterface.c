@@ -6,6 +6,7 @@
 
 #include "mainInterface.h"
 #include "jsonParser.h"
+#include "cliente_tcp.h"
 
 NetworkInfo netInfo = {0, 0, 0, 0, 0};
 Sensor *outputs = NULL;
@@ -14,17 +15,21 @@ Sensor dht = {0, 0, 0, 0};
 int outputsSize = 0, inputsSize = 0, entryIndex = -1, exitIndex = -1;
 
 void initServer() {
-    readConfigs();
+    char *text = readFile();
+    readConfigs(text);
+
+    enviarMensagem(netInfo.centralServerIp, netInfo.centralServerPort, text);
+
+    free(text);
+
     findCountingSensors();
     wiringPiSetupGpio();
     readSensors();
     freeData();
 }
 
-void readConfigs() {
-    char *text = readFile();
+void readConfigs(char *text) {
     initJson(text);
-    free(text);
 
     parseNetworkInfo(&netInfo);
     parseDhtInfo(&dht);
@@ -68,7 +73,7 @@ void readSensors() {
 
         if(size > 0) {
             char *text = createJson(inputs, pins, size, "inputs");
-            printf("\n__________________________________________\n%s\n__________________________________________\n", text);
+            enviarMensagem(netInfo.centralServerIp, netInfo.centralServerPort, text);
             free(text);
         }
 
