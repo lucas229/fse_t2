@@ -26,5 +26,7 @@ void saveSensorData(cJSON *item, Sensor *sensor);
 void saveString(cJSON *item, char *key, char **string);
 void clearJson();
 char *createJson(Sensor *sensors, int *pins, int size, char *key);
+void addType(char **text, char *type);
+void addPort(char **text, int port);
 
 #endif

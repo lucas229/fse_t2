@@ -73,3 +73,19 @@ char *createJson(Sensor *sensors, int *pins, int size, char *key) {
 
     return out;
 }
+
+void addType(char **text, char *type) {
+    cJSON *root = cJSON_Parse(*text);
+    cJSON_AddItemToObject(root, "type", cJSON_CreateString(type));
+    free(*text);
+    *text = cJSON_Print(root);
+    cJSON_Delete(root);
+}
+
+void addPort(char **text, int port) {
+    cJSON *root = cJSON_Parse(*text);
+    cJSON_AddItemToObject(root, "port", cJSON_CreateNumber(port));
+    free(*text);
+    *text = cJSON_Print(root);
+    cJSON_Delete(root);
+}

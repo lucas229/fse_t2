@@ -18,8 +18,9 @@ void initServer() {
     char *text = readFile();
     readConfigs(text);
 
+    addType(&text, "Connection");
+    addPort(&text, netInfo.distServerPort);
     enviarMensagem(netInfo.centralServerIp, netInfo.centralServerPort, text);
-
     free(text);
 
     findCountingSensors();
@@ -73,6 +74,8 @@ void readSensors() {
 
         if(size > 0) {
             char *text = createJson(inputs, pins, size, "inputs");
+            addType(&text, "Status");
+            addPort(&text, netInfo.distServerPort);
             enviarMensagem(netInfo.centralServerIp, netInfo.centralServerPort, text);
             free(text);
         }

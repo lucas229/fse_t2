@@ -32,5 +32,7 @@ void saveString(cJSON *item, char *key, char **string);
 void clearJson();
 char *createJson(Sensor *sensors, int *pins, int size, char *key);
 int parseStatusArray(Status **statuses, char *key);
+char *getType(char *text);
+int getPort(char *text);
 
 #endif

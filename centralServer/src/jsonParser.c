@@ -85,3 +85,18 @@ int parseStatusArray(Status **statuses, char *key) {
     }
     return size;
 }
+
+char *getType(char *text) {
+    cJSON *root = cJSON_Parse(text);
+    char *type = NULL;
+    saveString(root, "type", &type);
+    cJSON_Delete(root);
+    return type;
+}
+
+int getPort(char *text) {
+    cJSON *root = cJSON_Parse(text);
+    int port = cJSON_GetObjectItem(root, "port")->valueint;
+    cJSON_Delete(root);
+    return port;
+}

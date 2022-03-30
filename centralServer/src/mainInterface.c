@@ -7,66 +7,92 @@
 #include "jsonParser.h"
 #include "servidor_tcp.h"
 
-NetworkInfo netInfo = {0, 0, 0, 0, 0};
-Sensor *outputs = NULL;
-Sensor *inputs = NULL;
-Sensor dht = {0, 0, 0, 0};
-int outputsSize = 0, inputsSize = 0, entryIndex = -1, exitIndex = -1;
+NetworkInfo netInfo[MAX];
+Sensor *outputs[MAX];
+Sensor *inputs[MAX];
+Sensor dht[MAX];
+int outputsSize[MAX] = {0}, inputsSize[MAX] = {0}, entryIndex[MAX] = {-1}, exitIndex[MAX] = {-1}, connections = 0;
 
 void initServer() {
     configurarServidor(10052);
-    char *text = aguardarMensagem();
-    readConfigs(text);
-    free(text);
-
-    findCountingSensors();
 
     while(1) {
-        for(int i = 0; i < inputsSize; i++) {
-            printf("%s: %d\n", inputs[i].tag, inputs[i].status);
+        for(int i = 0; i < connections; i++) {
+            printf("Servidor: %s\n", netInfo[i].serverName);
+            for(int j = 0; j < inputsSize[i]; j++) {
+                printf("%s: %d\n", inputs[i][j].tag, inputs[i][j].status);
+            }
+            printf("\n");
         }
         char *text = aguardarMensagem();
-        initJson(text);
-        Status *statuses = NULL;
-        int size = parseStatusArray(&statuses, "inputs");
-        clearJson();
-        for(int j = 0; j < size; j++) {
-            updateStatus(statuses[j].gpio, statuses[j].status);
+        char *type = getType(text);
+        if(strcmp(type, "Connection") == 0) {
+            addConnection(text);
+        } else if(strcmp(type, "Status") == 0) {
+            int port = getPort(text);
+            initJson(text);
+            updateStatuses(port);
+            clearJson();
         }
-        free(statuses);
+        free(text);
+        free(type);
     }
 
     freeData();
     encerrarServidor();
 }
 
-void updateStatus(int gpio, int status) {
-    for(int i = 0; i < inputsSize; i++) {
-        if(gpio == inputs[i].gpio) {
-            inputs[i].status = status;
+void addConnection(char *text) {
+    readConfigs(text);
+    findCountingSensors();
+    connections++;
+}
+
+void updateStatuses(int port) {
+    Status *statuses = NULL;
+    int size = parseStatusArray(&statuses, "inputs");
+    for(int j = 0; j < size; j++) {
+        updateStatus(statuses[j].gpio, statuses[j].status, findByPort(port));
+    }
+    free(statuses);
+}
+
+void updateStatus(int gpio, int status, int index) {
+    for(int i = 0; i < inputsSize[index]; i++) {
+        if(gpio == inputs[index][i].gpio) {
+            inputs[index][i].status = status;
             return;
         }
     }
 }
 
+int findByPort(int port) {
+    for(int i = 0; i < connections; i++) {
+        if(netInfo[i].distServerPort == port) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 void readConfigs(char *text) {
     initJson(text);
 
-    parseNetworkInfo(&netInfo);
-    parseDhtInfo(&dht);
-    outputsSize = parseArray(&outputs, "outputs");
-    inputsSize = parseArray(&inputs, "inputs");
+    parseNetworkInfo(&netInfo[connections]);
+    parseDhtInfo(&dht[connections]);
+    outputsSize[connections] = parseArray(&outputs[connections], "outputs");
+    inputsSize[connections] = parseArray(&inputs[connections], "inputs");
 
     clearJson();
 }
 
 void findCountingSensors() {
-    for(int i = 0; i < inputsSize; i++) {
-        if(strcmp(inputs[i].type, "contagem") == 0) {
-            if(entryIndex == -1) {
-                entryIndex = i;
+    for(int i = 0; i < inputsSize[connections]; i++) {
+        if(strcmp(inputs[connections][i].type, "contagem") == 0) {
+            if(entryIndex[connections] == -1) {
+                entryIndex[connections] = i;
             } else {
-                exitIndex = i;
+                exitIndex[connections] = i;
                 return;
             }
         }
@@ -74,19 +100,24 @@ void findCountingSensors() {
 }
 
 void freeData() {
-    free(netInfo.centralServerIp);
-    free(netInfo.distServerIp);
-    free(netInfo.serverName);
-    free(dht.type);
-    free(dht.tag);
-    for(int i = 0; i < inputsSize; i++) {
-        free(inputs[i].type);
-        free(inputs[i].tag);
+    for(int i = 0; i < connections; i++) {
+        free(netInfo[i].centralServerIp);
+        free(netInfo[i].distServerIp);
+        free(netInfo[i].serverName);
+        free(dht[i].type);
+        free(dht[i].tag);
     }
-    for(int i = 0; i < outputsSize; i++) {
-        free(outputs[i].type);
-        free(outputs[i].tag);
+
+    for(int i = 0; i < connections; i++) {
+        for(int j = 0; j < inputsSize[i]; j++) {
+            free(inputs[i][j].type);
+            free(inputs[i][j].tag);
+        }
+        for(int j = 0; j < outputsSize[i]; j++) {
+            free(outputs[i][j].type);
+            free(outputs[i][j].tag);
+        }
+        free(inputs[i]);
+        free(outputs[i]);
     }
-    free(inputs);
-    free(outputs);
 }
