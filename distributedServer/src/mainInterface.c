@@ -3,10 +3,12 @@
 #include <wiringPi.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "mainInterface.h"
 #include "jsonParser.h"
 #include "cliente_tcp.h"
+#include "servidor_tcp.h"
 
 NetworkInfo netInfo = {0, 0, 0, 0, 0};
 Sensor *outputs = NULL;
@@ -18,6 +20,9 @@ void initServer() {
     char *text = readFile();
     readConfigs(text);
 
+    pthread_t id;
+    pthread_create(&id, NULL, &listenTcp, NULL);
+
     addType(&text, "Connection");
     addPort(&text, netInfo.distServerPort);
     enviarMensagem(netInfo.centralServerIp, netInfo.centralServerPort, text);
@@ -26,7 +31,34 @@ void initServer() {
     findCountingSensors();
     wiringPiSetupGpio();
     readSensors();
+
     freeData();
+    pthread_join(id, NULL);
+    encerrarServidor();
+}
+
+void *listenTcp(void *arg) {
+    configurarServidor(netInfo.distServerPort);
+    while(1) {
+        char *text = aguardarMensagem();
+        printf("\n__________________________________\n%s\n__________________________________\n", text);
+        Status *statuses = NULL;
+        initJson(text);
+        int size = parseStatusArray(&statuses, "outputs");
+        clearJson();
+        for(int i = 0; i < size; i++) {
+            for(int j = 0; j < outputsSize; j++) {
+                if(statuses[i].gpio == outputs[j].gpio) {
+                    pinMode(outputs[j].gpio, OUTPUT);
+                    digitalWrite(outputs[j].gpio, statuses[i].status);
+                    outputs[j].status = statuses[i].status;
+                    break;
+                }
+            }
+        }
+        free(text);
+        free(statuses);
+    }
 }
 
 void readConfigs(char *text) {
@@ -60,20 +92,25 @@ void readSensors() {
 
     int counter = 1;
     while(1) {
-        int pins[30], size = 0;
+        int inputPins[30] = {0}, outputPins[30] = {0}, inputChanges = 0, outputChanges = 0;
         if(counter == 1) {
             for(int i = 0; i < inputsSize; i++) {
                 if(i == entryIndex || i == exitIndex) {
                     continue;
                 }
-                checkInputStatus(pins, &size, i);
+                checkInputStatus(inputPins, &inputChanges, i);
+            }
+
+            for(int i = 0; i < outputsSize; i++) {
+                checkOutputStatus(outputPins, &outputChanges, i);
             }
         }
-        checkInputStatus(pins, &size, entryIndex);
-        checkInputStatus(pins, &size, exitIndex);
+        checkInputStatus(inputPins, &inputChanges, entryIndex);
+        checkInputStatus(inputPins, &inputChanges, exitIndex);
 
-        if(size > 0) {
-            char *text = createJson(inputs, pins, size, "inputs");
+        if(inputChanges > 0 || outputChanges > 0) {
+            char *text = createJson(inputs, inputPins, inputChanges, "inputs");
+            text = editJson(text, outputs, outputPins, outputChanges, "outputs");
             addType(&text, "Status");
             addPort(&text, netInfo.distServerPort);
             enviarMensagem(netInfo.centralServerIp, netInfo.centralServerPort, text);
@@ -95,6 +132,14 @@ void checkInputStatus(int *pins, int *size, int index) {
         if(status == 0 && (index == entryIndex || index == exitIndex)) {
             return;
         }
+        pins[(*size)++] = index;
+    }
+}
+
+void checkOutputStatus(int *pins, int *size, int index) {
+    int status = digitalRead(outputs[index].gpio);
+    if(outputs[index].status != status) {
+        outputs[index].status = !outputs[index].status;
         pins[(*size)++] = index;
     }
 }

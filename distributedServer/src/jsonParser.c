@@ -74,6 +74,39 @@ char *createJson(Sensor *sensors, int *pins, int size, char *key) {
     return out;
 }
 
+char *editJson(char *text, Sensor *sensors, int *pins, int size, char *key) {
+    cJSON *root = cJSON_Parse(text);
+    cJSON *items = cJSON_CreateArray();
+
+    cJSON_AddItemToObject(root, key, items);
+
+    for(int i = 0; i < size; i++) {
+        cJSON *item = cJSON_CreateObject();
+        cJSON_AddItemToArray(items, item);
+        cJSON_AddItemToObject(item, "gpio", cJSON_CreateNumber(sensors[pins[i]].gpio));
+        cJSON_AddItemToObject(item, "status", cJSON_CreateNumber(sensors[pins[i]].status));
+    }
+
+    free(text);
+    char *out = cJSON_Print(root);
+
+    cJSON_Delete(root);
+
+    return out;
+}
+
+int parseStatusArray(Status **statuses, char *key) {
+    cJSON *array = cJSON_GetObjectItem(root, key);
+    int size = cJSON_GetArraySize(array);
+    *statuses = calloc(size, sizeof(Status));
+    for(int i = 0; i < size; i++) {
+        cJSON *item = cJSON_GetArrayItem(array, i);
+        (*statuses)[i].gpio = cJSON_GetObjectItem(item, "gpio")->valueint;
+        (*statuses)[i].status = cJSON_GetObjectItem(item, "status")->valueint;
+    }
+    return size;
+}
+
 void addType(char **text, char *type) {
     cJSON *root = cJSON_Parse(*text);
     cJSON_AddItemToObject(root, "type", cJSON_CreateString(type));
