@@ -18,5 +18,6 @@ int findByPort(int port);
 void readConfigs();
 void findCountingSensors();
 void freeData();
+void enableDevices(char *key, int status);
 
 #endif

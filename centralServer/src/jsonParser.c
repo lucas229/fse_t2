@@ -74,7 +74,7 @@ char *createJson(Sensor *sensors, int *pins, int size, char *key) {
     return out;
 }
 
-char *createOutputsJson(Sensor *sensors, int *pins, int size, char *key) {
+char *createOutputsJson(Sensor *sensors, int *pins, int size, char *key, int status) {
     cJSON *root = cJSON_CreateObject();
     cJSON *items = cJSON_CreateArray();
 
@@ -84,7 +84,11 @@ char *createOutputsJson(Sensor *sensors, int *pins, int size, char *key) {
         cJSON *item = cJSON_CreateObject();
         cJSON_AddItemToArray(items, item);
         cJSON_AddItemToObject(item, "gpio", cJSON_CreateNumber(sensors[pins[i]].gpio));
-        cJSON_AddItemToObject(item, "status", cJSON_CreateNumber(!sensors[pins[i]].status));
+        if(status < 0) {
+            cJSON_AddItemToObject(item, "status", cJSON_CreateNumber(!sensors[pins[i]].status));
+        } else {
+            cJSON_AddItemToObject(item, "status", cJSON_CreateNumber(status));
+        }
     }
 
     char *out = cJSON_Print(root);

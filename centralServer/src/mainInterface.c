@@ -90,7 +90,7 @@ void serverMenu() {
     init_pair(2, COLOR_RED, COLOR_BLACK);
 
     cbreak();
-    timeout(50);
+    timeout(500);
     while(1) {
         erase();
 
@@ -128,6 +128,10 @@ void serverMenu() {
         for(int i = 0; i < outputsSize[selectedServer]; i++) {
             mvprintw(row++, 40, "[%d] Ligar/Desligar %s", i + 1, outputs[selectedServer][i].tag, outputs[selectedServer][i].status);
         }
+        mvprintw(row++, 40, "[%d] Ligar todas as lâmpadas", outputsSize[selectedServer] + 1);
+        mvprintw(row++, 40, "[%d] Desligar todas as lâmpadas", outputsSize[selectedServer] + 2);
+        mvprintw(row++, 40, "[%d] Ligar todos os ares-condicionados", outputsSize[selectedServer] + 3);
+        mvprintw(row++, 40, "[%d] Desligar todos os ares-condicionados", outputsSize[selectedServer] + 4);
 
         refresh();
         
@@ -137,16 +141,41 @@ void serverMenu() {
                 break;
             } else {
                 command -= '0';
-                changeStatus(command - 1);
+                if(command >= 1 && command <= outputsSize[selectedServer]) {
+                    changeStatus(command - 1);
+                } else if(command == outputsSize[selectedServer] + 1) {
+                    enableDevices("lampada", 1);
+                } else if(command == outputsSize[selectedServer] + 2) {
+                    enableDevices("lampada", 0);
+                } else if(command == outputsSize[selectedServer] + 3) {
+                    enableDevices("ar-condicionado", 1);
+                } else if(command == outputsSize[selectedServer] + 4) {
+                    enableDevices("ar-condicionado", 0);
+                }
             }
         }
     }
     timeout(-1);
 }
 
+void enableDevices(char *key, int status) {
+    int n = 0, pins[30] = {0};
+    for(int i = 0; i < outputsSize[selectedServer]; i++) {
+        if(strcmp(outputs[selectedServer][i].type, key) == 0) {
+            pins[n++] = i;
+        }
+    }
+    char *text = createOutputsJson(&outputs[selectedServer][0], pins, n, "outputs", status);
+    for(int i = 0; i < n; i++) {
+        outputs[selectedServer][pins[i]].status = status;
+    }
+    enviarMensagem(netInfo[selectedServer].distServerIp, netInfo[selectedServer].distServerPort, text);
+    free(text);
+}
+
 void changeStatus(int pin) {
     int pins[] = {pin};
-    char *text = createOutputsJson(&outputs[selectedServer][0], pins, 1, "outputs");
+    char *text = createOutputsJson(&outputs[selectedServer][0], pins, 1, "outputs", -1);
     outputs[selectedServer][pin].status = !outputs[selectedServer][pin].status;
     enviarMensagem(netInfo[selectedServer].distServerIp, netInfo[selectedServer].distServerPort, text);
     free(text);
