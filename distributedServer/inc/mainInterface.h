@@ -10,5 +10,6 @@ void checkInputStatus(int *pins, int *size, int index);
 void checkOutputStatus(int *pins, int *size, int index);
 char *readFile();
 void freeData();
+void *readDht(void *arg);
 
 #endif

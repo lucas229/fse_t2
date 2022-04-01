@@ -9,19 +9,20 @@
 #include "jsonParser.h"
 #include "cliente_tcp.h"
 #include "servidor_tcp.h"
+#include "dht22.h"
 
 NetworkInfo netInfo = {0, 0, 0, 0, 0};
 Sensor *outputs = NULL;
 Sensor *inputs = NULL;
-Sensor dht = {0, 0, 0, 0};
+Dht dht = {0, 0, 0, -1, -1};
 int outputsSize = 0, inputsSize = 0, entryIndex = -1, exitIndex = -1;
 
 void initServer() {
     char *text = readFile();
     readConfigs(text);
 
-    pthread_t id;
-    pthread_create(&id, NULL, &listenTcp, NULL);
+    pthread_t id1, id2;
+    pthread_create(&id1, NULL, &listenTcp, NULL);
 
     addType(&text, "Connection");
     addPort(&text, netInfo.distServerPort);
@@ -30,11 +31,25 @@ void initServer() {
 
     findCountingSensors();
     wiringPiSetupGpio();
+    pthread_create(&id2, NULL, &readDht, NULL);
     readSensors();
 
+    pthread_join(id1, NULL);
+    pthread_join(id2, NULL);
     freeData();
-    pthread_join(id, NULL);
     encerrarServidor();
+}
+
+void *readDht(void *arg) {
+    while(1) {
+        dht.temp = get_info('c', dht.gpio);
+        dht.humidity = get_info('h', dht.gpio);
+        char *text = createDhtJson(dht);
+        addPort(&text, netInfo.distServerPort);
+        enviarMensagem(netInfo.centralServerIp, netInfo.centralServerPort, text);
+        free(text);
+        sleep(1);
+    }
 }
 
 void *listenTcp(void *arg) {

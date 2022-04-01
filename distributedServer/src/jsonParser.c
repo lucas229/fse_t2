@@ -29,12 +29,14 @@ void parseNetworkInfo(NetworkInfo *netInfo) {
     netInfo->distServerPort = cJSON_GetObjectItem(root, "porta_servidor_distribuido")->valueint;
 }
 
-void parseDhtInfo(Sensor *dht) {
-    cJSON *array = cJSON_GetObjectItem(root, "sensor_temepratura");
+void parseDhtInfo(Dht *dht) {
+    cJSON *array = cJSON_GetObjectItem(root, "sensor_temperatura");
     cJSON *item = cJSON_GetArrayItem(array, 0);
-    saveString(item, "model", &dht->type);
+    saveString(item, "type", &dht->type);
     saveString(item, "tag", &dht->tag);
     dht->gpio = cJSON_GetObjectItem(item, "gpio")->valueint;
+    dht->temp = -1;
+    dht->humidity = -1;
 }
 
 void saveSensorData(cJSON *item, Sensor *sensor) {
@@ -121,4 +123,18 @@ void addPort(char **text, int port) {
     free(*text);
     *text = cJSON_Print(root);
     cJSON_Delete(root);
+}
+
+char *createDhtJson(Dht dht) {
+    cJSON *root = cJSON_CreateObject();
+
+    cJSON_AddItemToObject(root, "Type", cJSON_CreateString("DHT"));
+    cJSON_AddItemToObject(root, "temperature", cJSON_CreateNumber(dht.temp));
+    cJSON_AddItemToObject(root, "humidity", cJSON_CreateNumber(dht.humidity));
+
+    char *text = cJSON_Print(root);
+
+    cJSON_Delete(root);
+
+    return text;  
 }

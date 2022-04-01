@@ -13,7 +13,7 @@
 NetworkInfo netInfo[MAX];
 Sensor *outputs[MAX];
 Sensor *inputs[MAX];
-Sensor dht[MAX];
+Dht dht[MAX];
 int outputsSize[MAX] = {0}, inputsSize[MAX] = {0}, entryIndex[MAX] = {-1}, exitIndex[MAX] = {-1}, connections = 0;
 int stop = 0, selectedServer = -1;
 pthread_t id1 = -1, id2 = -1, id3 = -1;
@@ -38,6 +38,9 @@ void *listenTcp(void *arg) {
             updateStatuses(port, "inputs");
             updateStatuses(port, "outputs");
             clearJson();
+        } else if(strcmp(type, "DHT") == 0) {
+            int port = getPort(text);
+            readDhtInfo(&dht[findByPort(port)], text);
         }
         free(text);
         free(type);
@@ -123,6 +126,13 @@ void serverMenu() {
 
         attroff(COLOR_PAIR(1));
         attroff(COLOR_PAIR(2));
+
+        if(dht[selectedServer].temp != -1) {
+            mvprintw(row++, 0, "Temperatura: %.1fºC\n", dht[selectedServer].temp);
+        }
+        if(dht[selectedServer].humidity != -1) {
+            mvprintw(row++, 0, "Umidade: %.1f%%\n", dht[selectedServer].humidity);
+        }
 
         row = 3;
         for(int i = 0; i < outputsSize[selectedServer]; i++) {

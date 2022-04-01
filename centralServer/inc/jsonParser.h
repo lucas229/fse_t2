@@ -18,6 +18,14 @@ typedef struct Sensor {
     int status;
 } Sensor;
 
+typedef struct Dht {
+    char *type;
+    char *tag;
+    int gpio;
+    float temp;
+    float humidity;
+} Dht;
+
 typedef struct Status {
     int gpio;
     int status;
@@ -26,7 +34,7 @@ typedef struct Status {
 void initJson(char *text);
 int parseArray(Sensor **sensors, char *key);
 void parseNetworkInfo(NetworkInfo *netInfo);
-void parseDhtInfo(Sensor *dht);
+void parseDhtInfo(Dht *dht);
 void saveSensorData(cJSON *item, Sensor *sensor);
 void saveString(cJSON *item, char *key, char **string);
 void clearJson();
@@ -35,5 +43,6 @@ char *createOutputsJson(Sensor *sensors, int *pins, int size, char *key, int sta
 int parseStatusArray(Status **statuses, char *key);
 char *getType(char *text);
 int getPort(char *text);
+void readDhtInfo(Dht *dht, char *text);
 
 #endif
