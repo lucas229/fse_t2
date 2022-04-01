@@ -6,7 +6,10 @@
 void initServer();
 void *listenTcp(void *arg);
 void *initMenu(void *arg);
-void *waitCommand(void *arg);
+void serverSelectionMenu();
+void serverMenu();
+void changeStatus(int pin);
+void exitServer();
 void addConnection(char *text);
 void updateStatuses(int port, char *key);
 void updateStatus(int gpio, int status, int index);

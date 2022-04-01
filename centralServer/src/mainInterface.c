@@ -15,20 +15,14 @@ Sensor *outputs[MAX];
 Sensor *inputs[MAX];
 Sensor dht[MAX];
 int outputsSize[MAX] = {0}, inputsSize[MAX] = {0}, entryIndex[MAX] = {-1}, exitIndex[MAX] = {-1}, connections = 0;
+int stop = 0, selectedServer = -1;
+pthread_t id1 = -1, id2 = -1, id3 = -1;
 
 void initServer() {
-    initscr();
-
-    pthread_t id1, id2, id3;
     pthread_create(&id1, NULL, &listenTcp, NULL);
     pthread_create(&id2, NULL, &initMenu, NULL);
-    pthread_create(&id3, NULL, &waitCommand, NULL);
-    pthread_join(id1, NULL);
     pthread_join(id2, NULL);
-    pthread_join(id3, NULL);
-
-    freeData();
-    encerrarServidor();
+    exitServer();
 }
 
 void *listenTcp(void *arg) {
@@ -51,47 +45,119 @@ void *listenTcp(void *arg) {
 }
 
 void *initMenu(void *arg) {
+    initscr();
     noecho();
+    curs_set(0);
+    serverSelectionMenu();
+    endwin();
+    return NULL;
+}
+
+void serverSelectionMenu() {
+    timeout(1000);
     while(1) {
-        clear();
+        erase();
 
         attron(A_BOLD);
-        if(connections) {
-            mvprintw(0, 0, "Servidor Distribuído: %s", netInfo[0].serverName);
-            mvprintw(2, 0, "Estados");
-            mvprintw(2, 60, "Acionamento");
-            attroff(A_BOLD);
-        }
+        printw("Selecione um servidor distribuído:\n\n");
+        attroff(A_BOLD);
 
-        for(int i = 0; i < inputsSize[0]; i++) {
-            if(strcmp("contagem", inputs[0][i].type) != 0) {
-                mvprintw(i + 3, 0, "%s: %d", inputs[0][i].tag, inputs[0][i].status);
-            }
+        for(int i = 0; i < connections; i++) {
+            printw("[%d] %s\n", i + 1, netInfo[i].serverName);
         }
-        for(int i = 0; i < outputsSize[0]; i++) {
-            mvprintw(i + 3 + inputsSize[0], 0, "%s: %d", outputs[0][i].tag, outputs[0][i].status);
-        }
-
-        for(int i = 0; i < outputsSize[0]; i++) {
-            mvprintw(i + 3, 60, "[%d] Ligar/Desligar %s", i + 1, outputs[0][i].tag, outputs[0][i].status);
+        if(connections == 0) {
+            printw("Não há servidores disponíveis no momento.");
         }
 
         refresh();
-        sleep(1);
+
+        int command = getch();
+        if(command != ERR) {
+            if(command == 'q') {
+                break;
+            }
+            command -= '0';
+            selectedServer = command - 1;
+            serverMenu();
+        }
     }
-    endwin();
+    timeout(-1);
 }
 
-void *waitCommand(void *arg) {
+void serverMenu() {
+    start_color();
+    init_pair(1, COLOR_GREEN, COLOR_BLACK);
+    init_pair(2, COLOR_RED, COLOR_BLACK);
+
+    cbreak();
+    timeout(50);
     while(1) {
-        int command = getch();
-        command -= '0';
-        int pins[] = {command - 1};
-        char *text = createOutputsJson(&outputs[0][0], pins, 1, "outputs");
-        outputs[0][command - 1].status = !outputs[0][command - 1].status;
-        enviarMensagem(netInfo[0].distServerIp, netInfo[0].distServerPort, text);
-        free(text);
+        erase();
+
+        int row = 0;
+        attron(A_BOLD);
+        mvprintw(row, 0, "Servidor Distribuído: %s", netInfo[selectedServer].serverName);
+        row += 2;
+        mvprintw(row, 0, "Estados");
+        mvprintw(row++, 40, "Acionamento");
+        attroff(A_BOLD);
+
+        for(int i = 0; i < inputsSize[selectedServer]; i++) {
+            if(strcmp("contagem", inputs[selectedServer][i].type) != 0) {
+                if(inputs[selectedServer][i].status) {
+                    attron(COLOR_PAIR(1));
+                } else {
+                    attron(COLOR_PAIR(2));
+                }
+                mvprintw(row++, 0, "%s: %d", inputs[selectedServer][i].tag, inputs[selectedServer][i].status);
+            }
+        }
+        for(int i = 0; i < outputsSize[selectedServer]; i++) {
+            if(outputs[selectedServer][i].status) {
+                attron(COLOR_PAIR(1));
+            } else {
+                attron(COLOR_PAIR(2));
+            }
+            mvprintw(row++, 0, "%s: %d", outputs[selectedServer][i].tag, outputs[selectedServer][i].status);
+        }
+
+        attroff(COLOR_PAIR(1));
+        attroff(COLOR_PAIR(2));
+
+        row = 3;
+        for(int i = 0; i < outputsSize[selectedServer]; i++) {
+            mvprintw(row++, 40, "[%d] Ligar/Desligar %s", i + 1, outputs[selectedServer][i].tag, outputs[selectedServer][i].status);
+        }
+
+        refresh();
+        
+        int command;
+        if((command = getch()) != ERR) {
+            if(command == 'q') {
+                break;
+            } else {
+                command -= '0';
+                changeStatus(command - 1);
+            }
+        }
     }
+    timeout(-1);
+}
+
+void changeStatus(int pin) {
+    int pins[] = {pin};
+    char *text = createOutputsJson(&outputs[selectedServer][0], pins, 1, "outputs");
+    outputs[selectedServer][pin].status = !outputs[selectedServer][pin].status;
+    enviarMensagem(netInfo[selectedServer].distServerIp, netInfo[selectedServer].distServerPort, text);
+    free(text);
+}
+
+void exitServer() {
+    pthread_cancel(id1);
+    pthread_join(id1, NULL);
+    endwin();
+    encerrarServidor();
+    freeData();
 }
 
 void addConnection(char *text) {
