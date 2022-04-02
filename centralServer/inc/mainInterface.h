@@ -19,5 +19,7 @@ void readConfigs();
 void findCountingSensors();
 void freeData();
 void enableDevices(char *key, int status);
+int findByGpio(int gpio, int server);
+void findPorts();
 
 #endif

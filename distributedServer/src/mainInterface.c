@@ -56,7 +56,6 @@ void *listenTcp(void *arg) {
     configurarServidor(netInfo.distServerPort);
     while(1) {
         char *text = aguardarMensagem();
-        printf("\n__________________________________\n%s\n__________________________________\n", text);
         Status *statuses = NULL;
         initJson(text);
         int size = parseStatusArray(&statuses, "outputs");

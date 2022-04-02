@@ -17,8 +17,13 @@ Dht dht[MAX];
 int outputsSize[MAX] = {0}, inputsSize[MAX] = {0}, entryIndex[MAX] = {-1}, exitIndex[MAX] = {-1}, connections = 0;
 int stop = 0, selectedServer = -1;
 pthread_t id1 = -1, id2 = -1, id3 = -1;
+int totalCounting = 0, secondCounting = 0, firstPort = -1, secondPort = -1;
 
 void initServer() {
+    for(int i = 0; i < MAX; i++) {
+        entryIndex[i] = -1;
+        exitIndex[i] = -1;
+    }
     pthread_create(&id1, NULL, &listenTcp, NULL);
     pthread_create(&id2, NULL, &initMenu, NULL);
     pthread_join(id2, NULL);
@@ -62,14 +67,22 @@ void serverSelectionMenu() {
         erase();
 
         attron(A_BOLD);
-        printw("Selecione um servidor distribuído:\n\n");
+        printw("Selecione um servidor distribuído:\n");
         attroff(A_BOLD);
 
         for(int i = 0; i < connections; i++) {
             printw("[%d] %s\n", i + 1, netInfo[i].serverName);
         }
         if(connections == 0) {
-            printw("Não há servidores disponíveis no momento.");
+            printw("\nNão há servidores disponíveis no momento.");
+        }
+
+        if(firstPort != -1) {
+            printw("\nPessoas no predio: %d\n", totalCounting);
+            printw("Pessoas 1o andar: %d\n", totalCounting - secondCounting);
+        }
+        if(secondPort != -1) {
+            printw("Pessoas 2o andar: %d", secondCounting);
         }
 
         refresh();
@@ -82,6 +95,7 @@ void serverSelectionMenu() {
             command -= '0';
             selectedServer = command - 1;
             serverMenu();
+            timeout(1000);
         }
     }
     timeout(-1);
@@ -128,10 +142,18 @@ void serverMenu() {
         attroff(COLOR_PAIR(2));
 
         if(dht[selectedServer].temp != -1) {
-            mvprintw(row++, 0, "Temperatura: %.1fºC\n", dht[selectedServer].temp);
+            mvprintw(row++, 0, "Temperatura: %.1fºC", dht[selectedServer].temp);
         }
         if(dht[selectedServer].humidity != -1) {
-            mvprintw(row++, 0, "Umidade: %.1f%%\n", dht[selectedServer].humidity);
+            mvprintw(row++, 0, "Umidade: %.1f%%", dht[selectedServer].humidity);
+        }
+
+        if(firstPort != -1) {
+            mvprintw(row++, 0, "Pessoas no predio: %d", totalCounting);
+            mvprintw(row++, 0, "Pessoas 1o andar: %d", totalCounting - secondCounting);
+        }
+        if(secondPort != -1) {
+            mvprintw(row++, 0, "Pessoas 2o andar: %d", secondCounting);
         }
 
         row = 3;
@@ -165,7 +187,6 @@ void serverMenu() {
             }
         }
     }
-    timeout(-1);
 }
 
 void enableDevices(char *key, int status) {
@@ -202,20 +223,54 @@ void exitServer() {
 void addConnection(char *text) {
     readConfigs(text);
     findCountingSensors();
+    findPorts();
     connections++;
+}
+
+void findPorts() {
+    if(strcmp(netInfo[connections].serverName, "Térreo") == 0) {
+        firstPort = netInfo[connections].distServerPort;
+    } else if(strcmp(netInfo[connections].serverName, "1º Andar") == 0) {
+        secondPort = netInfo[connections].distServerPort;
+    }
 }
 
 void updateStatuses(int port, char *key) {
     Status *statuses = NULL;
     int size = parseStatusArray(&statuses, key);
+    int portIndex = findByPort(port);
     for(int j = 0; j < size; j++) {
         if(strcmp(key, "inputs") == 0) {
-            updateStatus(statuses[j].gpio, statuses[j].status, findByPort(port));
+            updateStatus(statuses[j].gpio, statuses[j].status, portIndex);
+            if(port == firstPort) {
+                int gpio = findByGpio(statuses[j].gpio, findByPort(firstPort));
+                if(gpio == entryIndex[findByPort(firstPort)]) {
+                    totalCounting++;
+                } else if(gpio == exitIndex[findByPort(firstPort)]) {
+                    totalCounting--;
+                }
+            } else if(port == secondPort) {
+                int gpio = findByGpio(statuses[j].gpio, findByPort(secondPort));
+                if(gpio == entryIndex[findByPort(secondPort)]) {
+                    secondCounting++;
+                } else if(gpio == exitIndex[findByPort(secondPort)]) {
+                    secondCounting--;
+                }
+            }
         } else if(strcmp(key, "outputs") == 0) {
-            updateOutputStatus(statuses[j].gpio, statuses[j].status, findByPort(port));
+            updateOutputStatus(statuses[j].gpio, statuses[j].status, portIndex);
         }
     }
     free(statuses);
+}
+
+int findByGpio(int gpio, int server) {
+    for(int i = 0; i < inputsSize[server]; i++) {
+        if(inputs[server][i].gpio == gpio) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 void updateStatus(int gpio, int status, int index) {
