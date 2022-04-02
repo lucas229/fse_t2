@@ -21,5 +21,9 @@ void freeData();
 void enableDevices(char *key, int status);
 int findByGpio(int gpio, int server);
 void findPorts();
+void findSprinklerSensor();
+int findPin(char *key, int server);
+void *playAlarm(void *arg);
+int isAlarmOn();
 
 #endif

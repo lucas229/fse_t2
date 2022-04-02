@@ -16,8 +16,10 @@ Sensor *inputs[MAX];
 Dht dht[MAX];
 int outputsSize[MAX] = {0}, inputsSize[MAX] = {0}, entryIndex[MAX] = {-1}, exitIndex[MAX] = {-1}, connections = 0;
 int stop = 0, selectedServer = -1;
-pthread_t id1 = -1, id2 = -1, id3 = -1;
+pthread_t id1 = -1, id2 = -1, id3 = -1, alarmThread = -1;
 int totalCounting = 0, secondCounting = 0, firstPort = -1, secondPort = -1;
+int sprinklerServer = -1;
+int alarmSound[MAX] = {0};
 
 void initServer() {
     for(int i = 0; i < MAX; i++) {
@@ -74,7 +76,7 @@ void serverSelectionMenu() {
             printw("[%d] %s\n", i + 1, netInfo[i].serverName);
         }
         if(connections == 0) {
-            printw("\nNão há servidores disponíveis no momento.");
+            printw("\nNão há servidores disponíveis no momento.\n");
         }
 
         if(firstPort != -1) {
@@ -82,8 +84,21 @@ void serverSelectionMenu() {
             printw("Pessoas 1o andar: %d\n", totalCounting - secondCounting);
         }
         if(secondPort != -1) {
-            printw("Pessoas 2o andar: %d", secondCounting);
+            printw("Pessoas 2o andar: %d\n", secondCounting);
         }
+
+        start_color();
+        init_pair(1, COLOR_GREEN, COLOR_BLACK);
+        init_pair(2, COLOR_RED, COLOR_BLACK);
+        if(isAlarmOn()) {
+            attron(COLOR_PAIR(1));
+            printw("\nAlarme de incendio: ON\n");
+        } else {
+            attron(COLOR_PAIR(2));
+            printw("\nAlarme de incendio: OFF\n");
+        }
+        attroff(COLOR_PAIR(1));
+        attroff(COLOR_PAIR(2));
 
         refresh();
 
@@ -136,6 +151,14 @@ void serverMenu() {
                 attron(COLOR_PAIR(2));
             }
             mvprintw(row++, 0, "%s: %d", outputs[selectedServer][i].tag, outputs[selectedServer][i].status);
+        }
+
+        if(isAlarmOn()) {
+            attron(COLOR_PAIR(1));
+            mvprintw(row++, 0, "Alarme de incendio: ON");
+        } else {
+            attron(COLOR_PAIR(2));
+            mvprintw(row++, 0, "Alarme de incendio: OFF");
         }
 
         attroff(COLOR_PAIR(1));
@@ -224,6 +247,7 @@ void addConnection(char *text) {
     readConfigs(text);
     findCountingSensors();
     findPorts();
+    findSprinklerSensor();
     connections++;
 }
 
@@ -242,6 +266,7 @@ void updateStatuses(int port, char *key) {
     for(int j = 0; j < size; j++) {
         if(strcmp(key, "inputs") == 0) {
             updateStatus(statuses[j].gpio, statuses[j].status, portIndex);
+
             if(port == firstPort) {
                 int gpio = findByGpio(statuses[j].gpio, findByPort(firstPort));
                 if(gpio == entryIndex[findByPort(firstPort)]) {
@@ -257,11 +282,60 @@ void updateStatuses(int port, char *key) {
                     secondCounting--;
                 }
             }
+
+            if(strcmp(inputs[portIndex][findByGpio(statuses[j].gpio, portIndex)].type, "fumaca") == 0) {
+                if(statuses[j].status == 1) {
+                    if(sprinklerServer != -1) {
+                        int pin = findPin("aspersor", sprinklerServer);
+                        int pins[] = {pin};
+                        char *text = createOutputsJson(&outputs[sprinklerServer][0], pins, 1, "outputs", 1);
+                        outputs[sprinklerServer][pin].status = !outputs[sprinklerServer][pin].status;
+                        enviarMensagem(netInfo[sprinklerServer].distServerIp, netInfo[sprinklerServer].distServerPort, text);
+                        free(text);
+                        if(!isAlarmOn()) {
+                            pthread_create(&alarmThread, NULL, &playAlarm, NULL);
+                        }
+                        alarmSound[portIndex] = 1;
+                    }
+                } else {
+                    alarmSound[portIndex] = 0;
+                    if(!isAlarmOn()) {
+                        pthread_join(alarmThread , NULL);
+                    }
+                }
+            }
+
         } else if(strcmp(key, "outputs") == 0) {
             updateOutputStatus(statuses[j].gpio, statuses[j].status, portIndex);
         }
     }
     free(statuses);
+}
+
+int isAlarmOn() {
+    for(int i = 0; i < connections; i++) {
+        if(alarmSound[i]) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void *playAlarm(void *arg) {
+    while(isAlarmOn()) {
+        beep();
+        sleep(1);
+    }
+    return NULL;
+}
+
+int findPin(char *key, int server) {
+    for(int i = 0; i < outputsSize[server]; i++) {
+        if(strcmp(outputs[server][i].type, key) == 0) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 int findByGpio(int gpio, int server) {
@@ -320,6 +394,18 @@ void findCountingSensors() {
                 exitIndex[connections] = i;
                 return;
             }
+        }
+    }
+}
+
+void findSprinklerSensor() {
+    if(sprinklerServer != -1) {
+        return;
+    }
+    for(int i = 0; i < outputsSize[connections]; i++) {
+        if(strcmp(outputs[connections][i].type, "aspersor") == 0) {
+            sprinklerServer = connections;
+            break;
         }
     }
 }
