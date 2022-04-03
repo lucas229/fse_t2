@@ -97,6 +97,9 @@ void serverSelectionMenu() {
         attroff(COLOR_PAIR(1));
         attroff(COLOR_PAIR(2));
 
+        printw("[%d] Ligar todas as cargas\n", connections + 2);
+        printw("[%d] Desligar todas as cargas\n", connections + 3);
+
         if(firstPort != -1) {
             printw("\nPessoas no predio: %d\n", totalCounting);
             printw("Pessoas 1o andar: %d\n", totalCounting - secondCounting);
@@ -139,6 +142,10 @@ void serverSelectionMenu() {
                 selectedServer = command;
                 serverMenu();
                 timeout(1000);
+            } else if(command == connections + 1) {
+                enableAllDevices(1);
+            } else if(command == connections + 2) {
+                enableAllDevices(0);
             }
         }
     }
@@ -225,10 +232,8 @@ void serverMenu() {
         for(int i = 0; i < outputsSize[selectedServer]; i++) {
             mvprintw(row++, 40, "[%d] Ligar/Desligar %s", i + 1, outputs[selectedServer][i].tag, outputs[selectedServer][i].status);
         }
-        mvprintw(row++, 40, "[%d] Ligar todas as lâmpadas", outputsSize[selectedServer] + 1);
-        mvprintw(row++, 40, "[%d] Desligar todas as lâmpadas", outputsSize[selectedServer] + 2);
-        mvprintw(row++, 40, "[%d] Ligar todos os ares-condicionados", outputsSize[selectedServer] + 3);
-        mvprintw(row++, 40, "[%d] Desligar todos os ares-condicionados", outputsSize[selectedServer] + 4);
+        mvprintw(row++, 40, "[%d] Ligar todas as cargas", outputsSize[selectedServer] + 1);
+        mvprintw(row++, 40, "[%d] Desligar todas as cargas", outputsSize[selectedServer] + 2);
 
         refresh();
         
@@ -241,32 +246,34 @@ void serverMenu() {
                 if(command >= 1 && command <= outputsSize[selectedServer]) {
                     changeStatus(command - 1);
                 } else if(command == outputsSize[selectedServer] + 1) {
-                    enableDevices("lampada", 1);
+                    enableDevices(selectedServer, 1);
                 } else if(command == outputsSize[selectedServer] + 2) {
-                    enableDevices("lampada", 0);
-                } else if(command == outputsSize[selectedServer] + 3) {
-                    enableDevices("ar-condicionado", 1);
-                } else if(command == outputsSize[selectedServer] + 4) {
-                    enableDevices("ar-condicionado", 0);
+                    enableDevices(selectedServer, 0);
                 }
             }
         }
     }
 }
 
-void enableDevices(char *key, int status) {
+void enableAllDevices(int status) {
+    for(int i = 0; i < connections; i++) {
+        enableDevices(i, status);
+    }
+}
+
+void enableDevices(int index, int status) {
     int n = 0, pins[30] = {0};
-    for(int i = 0; i < outputsSize[selectedServer]; i++) {
-        if(strcmp(outputs[selectedServer][i].type, key) == 0) {
+    for(int i = 0; i < outputsSize[index]; i++) {
+        if(strcmp(outputs[index][i].type, "lampada") == 0 || strcmp(outputs[index][i].type, "ar-condicionado") == 0) {
             pins[n++] = i;
         }
     }
-    char *text = createOutputsJson(&outputs[selectedServer][0], pins, n, "outputs", status);
+    char *text = createOutputsJson(&outputs[index][0], pins, n, "outputs", status);
     for(int i = 0; i < n; i++) {
-        outputs[selectedServer][pins[i]].status = status;
-        logData(netInfo[selectedServer].serverName, outputs[selectedServer][pins[i]].tag, outputs[selectedServer][pins[i]].status);
+        outputs[index][pins[i]].status = status;
+        logData(netInfo[index].serverName, outputs[index][pins[i]].tag, outputs[index][pins[i]].status);
     }
-    enviarMensagem(netInfo[selectedServer].distServerIp, netInfo[selectedServer].distServerPort, text);
+    enviarMensagem(netInfo[index].distServerIp, netInfo[index].distServerPort, text);
     free(text);
 }
 
