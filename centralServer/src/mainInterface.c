@@ -9,6 +9,7 @@
 #include "jsonParser.h"
 #include "servidor_tcp.h"
 #include "cliente_tcp.h"
+#include "logger.h"
 
 NetworkInfo netInfo[MAX];
 Sensor *outputs[MAX];
@@ -124,12 +125,14 @@ void serverSelectionMenu() {
             command -= '0';
             command--;
             if(command == connections) {
-                userAlarm = !userAlarm;
-                if(userAlarm == 0) {
+                if(userAlarm == 1 || userAlarm == 2) {
+                    userAlarm = 0;
                     pthread_join(userAlarmThread, NULL);
-                } else {
-                    if(isAlarmDeviceActive()) {
-                        userAlarm = 0;
+                    logData(NULL, "Alarme de usuario", 0);
+                } else if(userAlarm == 0) {
+                    if(!isAlarmDeviceActive()) {
+                        userAlarm = 1;
+                        logData(NULL, "Alarme de usuario", 3);
                     }
                 }
             } else if(command >= 0 && command < connections) {
@@ -261,6 +264,7 @@ void enableDevices(char *key, int status) {
     char *text = createOutputsJson(&outputs[selectedServer][0], pins, n, "outputs", status);
     for(int i = 0; i < n; i++) {
         outputs[selectedServer][pins[i]].status = status;
+        logData(netInfo[selectedServer].serverName, outputs[selectedServer][pins[i]].tag, outputs[selectedServer][pins[i]].status);
     }
     enviarMensagem(netInfo[selectedServer].distServerIp, netInfo[selectedServer].distServerPort, text);
     free(text);
@@ -270,6 +274,7 @@ void changeStatus(int pin) {
     int pins[] = {pin};
     char *text = createOutputsJson(&outputs[selectedServer][0], pins, 1, "outputs", -1);
     outputs[selectedServer][pin].status = !outputs[selectedServer][pin].status;
+    logData(netInfo[selectedServer].serverName, outputs[selectedServer][pin].tag, outputs[selectedServer][pin].status);
     enviarMensagem(netInfo[selectedServer].distServerIp, netInfo[selectedServer].distServerPort, text);
     free(text);
 }
@@ -335,9 +340,11 @@ void updateStatuses(int port, char *key) {
                             pthread_create(&alarmThread, NULL, &playAlarm, NULL);
                         }
                         alarmSound[portIndex] = 1;
+                        logData(NULL, "Alarme de incendio", 1);
                     }
                 } else {
                     alarmSound[portIndex] = 0;
+                    logData(NULL, "Alarme de incendio", 0);
                     if(!isAlarmOn()) {
                         pthread_join(alarmThread , NULL);
                     }
@@ -348,7 +355,9 @@ void updateStatuses(int port, char *key) {
                 char type[100];
                 strcpy(type, inputs[portIndex][findByGpio(statuses[j].gpio, portIndex)].type);
                 if(strcmp(type, "janela") == 0 || strcmp(type, "porta") == 0 || strcmp(type, "presenca") == 0) {
+                    userAlarm = 2;
                     pthread_create(&userAlarmThread, NULL, &playUserAlarm, NULL);
+                    logData(NULL, "Alarme de usuario", 1);
                 }
             }
 
@@ -377,7 +386,7 @@ void *playAlarm(void *arg) {
 }
 
 void *playUserAlarm(void *arg) {
-    while(userAlarm) {
+    while(userAlarm == 2) {
         beep();
         sleep(1);
     }
