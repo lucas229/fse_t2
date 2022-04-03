@@ -25,5 +25,7 @@ void findSprinklerSensor();
 int findPin(char *key, int server);
 void *playAlarm(void *arg);
 int isAlarmOn();
+int isAlarmDeviceActive();
+void *playUserAlarm(void *arg);
 
 #endif

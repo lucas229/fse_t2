@@ -16,10 +16,10 @@ Sensor *inputs[MAX];
 Dht dht[MAX];
 int outputsSize[MAX] = {0}, inputsSize[MAX] = {0}, entryIndex[MAX] = {-1}, exitIndex[MAX] = {-1}, connections = 0;
 int stop = 0, selectedServer = -1;
-pthread_t id1 = -1, id2 = -1, id3 = -1, alarmThread = -1;
+pthread_t id1 = -1, id2 = -1, id3 = -1, alarmThread = -1, userAlarmThread;
 int totalCounting = 0, secondCounting = 0, firstPort = -1, secondPort = -1;
 int sprinklerServer = -1;
-int alarmSound[MAX] = {0};
+int alarmSound[MAX] = {0}, userAlarm = 0;
 
 void initServer() {
     for(int i = 0; i < MAX; i++) {
@@ -65,6 +65,11 @@ void *initMenu(void *arg) {
 
 void serverSelectionMenu() {
     timeout(1000);
+
+    start_color();
+    init_pair(1, COLOR_GREEN, COLOR_BLACK);
+    init_pair(2, COLOR_RED, COLOR_BLACK);
+
     while(1) {
         erase();
 
@@ -75,9 +80,21 @@ void serverSelectionMenu() {
         for(int i = 0; i < connections; i++) {
             printw("[%d] %s\n", i + 1, netInfo[i].serverName);
         }
+        
         if(connections == 0) {
             printw("\nNão há servidores disponíveis no momento.\n");
         }
+
+        if(userAlarm) {
+            attron(COLOR_PAIR(1));
+            printw("\n[%d] Alarme: ON\n", connections + 1);
+        } else {
+            attron(COLOR_PAIR(2));
+            printw("\n[%d] Alarme: OFF\n", connections + 1);
+        }
+
+        attroff(COLOR_PAIR(1));
+        attroff(COLOR_PAIR(2));
 
         if(firstPort != -1) {
             printw("\nPessoas no predio: %d\n", totalCounting);
@@ -87,9 +104,6 @@ void serverSelectionMenu() {
             printw("Pessoas 2o andar: %d\n", secondCounting);
         }
 
-        start_color();
-        init_pair(1, COLOR_GREEN, COLOR_BLACK);
-        init_pair(2, COLOR_RED, COLOR_BLACK);
         if(isAlarmOn()) {
             attron(COLOR_PAIR(1));
             printw("\nAlarme de incendio: ON\n");
@@ -108,12 +122,37 @@ void serverSelectionMenu() {
                 break;
             }
             command -= '0';
-            selectedServer = command - 1;
-            serverMenu();
-            timeout(1000);
+            command--;
+            if(command == connections) {
+                userAlarm = !userAlarm;
+                if(userAlarm == 0) {
+                    pthread_join(userAlarmThread, NULL);
+                } else {
+                    if(isAlarmDeviceActive()) {
+                        userAlarm = 0;
+                    }
+                }
+            } else if(command >= 0 && command < connections) {
+                selectedServer = command;
+                serverMenu();
+                timeout(1000);
+            }
         }
     }
     timeout(-1);
+}
+
+int isAlarmDeviceActive() {
+    for(int i = 0; i < connections; i++) {
+        for(int j = 0; j < inputsSize[i]; j++) {
+            if(strcmp(inputs[i][j].type, "janela") == 0 || strcmp(inputs[i][j].type, "porta") == 0 || strcmp(inputs[i][j].type, "presenca") == 0) {
+                if(inputs[i][j].status == 1) {
+                    return 1;
+                }
+            }
+        }
+    }
+    return 0;
 }
 
 void serverMenu() {
@@ -305,6 +344,14 @@ void updateStatuses(int port, char *key) {
                 }
             }
 
+            if(userAlarm == 1) {
+                char type[100];
+                strcpy(type, inputs[portIndex][findByGpio(statuses[j].gpio, portIndex)].type);
+                if(strcmp(type, "janela") == 0 || strcmp(type, "porta") == 0 || strcmp(type, "presenca") == 0) {
+                    pthread_create(&userAlarmThread, NULL, &playUserAlarm, NULL);
+                }
+            }
+
         } else if(strcmp(key, "outputs") == 0) {
             updateOutputStatus(statuses[j].gpio, statuses[j].status, portIndex);
         }
@@ -323,6 +370,14 @@ int isAlarmOn() {
 
 void *playAlarm(void *arg) {
     while(isAlarmOn()) {
+        beep();
+        sleep(1);
+    }
+    return NULL;
+}
+
+void *playUserAlarm(void *arg) {
+    while(userAlarm) {
         beep();
         sleep(1);
     }
