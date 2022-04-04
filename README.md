@@ -11,7 +11,7 @@ make run
 ```
 
 ### Servidor Distribuído
-Para iniciar o servidor distribuído é necessário incluir o nome do arquivo json com as configurações desejadas que deve estar na pasta distributedServer ao iniciar o programa.
+Para iniciar uma instância de um servidor distribuído é necessário incluir o nome do arquivo json com as configurações desejadas que deve estar na pasta distributedServer ao iniciar o programa.
 Se o nome do arquivo desejado for, por exemplo, "configuracao_andar_terreo.json", os comandos são os seguintes:
 ```
 cd distributedServer
@@ -39,3 +39,5 @@ e os estados atuais dos sensores, dispositivos e alarmes do lado esquerdo.
 
 - O servidor central por padrão aguarda mensagens TCP na porta 10052. Ao iniciar uma instância de um servidor distribuído, ele se conectará automaticamente ao
 servidor central caso esteja disponível.
+
+- O estado do alarme de segurança só poderá ser alterado para ligado se todos os sensores de porta, janela e presença estiverem desligados.
