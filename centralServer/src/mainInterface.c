@@ -86,37 +86,37 @@ void serverSelectionMenu() {
             printw("\nNão há servidores disponíveis no momento.\n");
         }
 
-        if(userAlarm) {
-            attron(COLOR_PAIR(1));
-            printw("\n[%d] Alarme: ON\n", connections + 1);
-        } else {
-            attron(COLOR_PAIR(2));
-            printw("\n[%d] Alarme: OFF\n", connections + 1);
-        }
-
-        attroff(COLOR_PAIR(1));
-        attroff(COLOR_PAIR(2));
-
+        printw("\n[%d] Alarme de seguranca\n", connections + 1);
         printw("[%d] Ligar todas as cargas\n", connections + 2);
-        printw("[%d] Desligar todas as cargas\n", connections + 3);
+        printw("[%d] Desligar todas as cargas\n\n", connections + 3);
 
         if(firstPort != -1) {
-            printw("\nPessoas no predio: %d\n", totalCounting);
+            printw("Pessoas no predio: %d\n", totalCounting);
             printw("Pessoas 1o andar: %d\n", totalCounting - secondCounting);
         }
         if(secondPort != -1) {
             printw("Pessoas 2o andar: %d\n", secondCounting);
         }
 
-        if(isAlarmOn()) {
+        if(userAlarm) {
             attron(COLOR_PAIR(1));
-            printw("\nAlarme de incendio: ON\n");
+            printw("Alarme: de seguranca ON\n");
         } else {
             attron(COLOR_PAIR(2));
-            printw("\nAlarme de incendio: OFF\n");
+            printw("Alarme de seguranca: OFF\n");
+        }
+
+        if(isAlarmOn()) {
+            attron(COLOR_PAIR(1));
+            printw("Alarme de incendio: ON\n");
+        } else {
+            attron(COLOR_PAIR(2));
+            printw("Alarme de incendio: OFF\n");
         }
         attroff(COLOR_PAIR(1));
         attroff(COLOR_PAIR(2));
+
+        printw("\n\nPressione 'q' para encerrar o programa.");
 
         refresh();
 
@@ -130,7 +130,9 @@ void serverSelectionMenu() {
             if(command == connections) {
                 if(userAlarm == 1 || userAlarm == 2) {
                     userAlarm = 0;
-                    pthread_join(userAlarmThread, NULL);
+                    if(userAlarm == 2) {
+                        pthread_join(userAlarmThread, NULL);
+                    }
                     logData(NULL, "Alarme de usuario", 0);
                 } else if(userAlarm == 0) {
                     if(!isAlarmDeviceActive()) {
@@ -172,6 +174,8 @@ void serverMenu() {
 
     cbreak();
     timeout(500);
+    clear();
+    refresh();
     while(1) {
         erase();
 
@@ -202,6 +206,14 @@ void serverMenu() {
             mvprintw(row++, 0, "%s: %d", outputs[selectedServer][i].tag, outputs[selectedServer][i].status);
         }
 
+        if(userAlarm) {
+            attron(COLOR_PAIR(1));
+            mvprintw(row++, 0, "Alarme: de seguranca ON\n");
+        } else {
+            attron(COLOR_PAIR(2));
+            mvprintw(row++, 0, "Alarme de seguranca: OFF\n");
+        }
+
         if(isAlarmOn()) {
             attron(COLOR_PAIR(1));
             mvprintw(row++, 0, "Alarme de incendio: ON");
@@ -227,6 +239,9 @@ void serverMenu() {
         if(secondPort != -1) {
             mvprintw(row++, 0, "Pessoas 2o andar: %d", secondCounting);
         }
+
+        row++;
+        mvprintw(row, 0, "Pressione 'q' para selecionar outro servidor.");
 
         row = 3;
         for(int i = 0; i < outputsSize[selectedServer]; i++) {
@@ -292,13 +307,17 @@ void exitServer() {
     pthread_cancel(id1);
     pthread_join(id1, NULL);
     endwin();
+    disconnectServers();
+    encerrarServidor();
+    freeData();
+}
+
+void disconnectServers() {
     char *text = createType("Disconnect");
     for(int i = 0; i < connections; i++) {
         enviarMensagem(netInfo[i].distServerIp, netInfo[i].distServerPort, text);
     }
     free(text);
-    encerrarServidor();
-    freeData();
 }
 
 void addConnection(char *text) {
@@ -369,7 +388,7 @@ void updateStatuses(int port, char *key) {
             if(userAlarm == 1) {
                 char type[100];
                 strcpy(type, inputs[portIndex][findByGpio(statuses[j].gpio, portIndex)].type);
-                if(strcmp(type, "janela") == 0 || strcmp(type, "porta") == 0 || strcmp(type, "presenca") == 0) {
+                if(statuses[j].status == 1 && (strcmp(type, "janela") == 0 || strcmp(type, "porta") == 0 || strcmp(type, "presenca") == 0)) {
                     userAlarm = 2;
                     pthread_create(&userAlarmThread, NULL, &playUserAlarm, NULL);
                     logData(NULL, "Alarme de usuario", 1);
@@ -395,7 +414,7 @@ int isAlarmOn() {
 void *playAlarm(void *arg) {
     while(isAlarmOn()) {
         beep();
-        sleep(1);
+        sleep(2);
     }
     return NULL;
 }
@@ -403,7 +422,7 @@ void *playAlarm(void *arg) {
 void *playUserAlarm(void *arg) {
     while(userAlarm == 2) {
         beep();
-        sleep(1);
+        sleep(2);
     }
     return NULL;
 }
@@ -510,4 +529,24 @@ void freeData() {
         free(inputs[i]);
         free(outputs[i]);
     }
+}
+
+void stopServer() {
+    pthread_cancel(id1);
+    pthread_join(id1, NULL);
+    pthread_cancel(id2);
+    pthread_join(id2, NULL);
+    if(userAlarm == 2) {
+        pthread_cancel(userAlarmThread);
+        pthread_join(userAlarmThread, NULL); 
+    }
+    if(isAlarmOn()) {
+        pthread_cancel(alarmThread);
+        pthread_join(alarmThread, NULL); 
+    }
+    disconnectServers();
+    encerrarServidor();
+    endwin();
+    freeData();
+    exit(0);
 }

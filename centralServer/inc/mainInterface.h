@@ -28,5 +28,7 @@ void *playAlarm(void *arg);
 int isAlarmOn();
 int isAlarmDeviceActive();
 void *playUserAlarm(void *arg);
+void stopServer();
+void disconnectServers();
 
 #endif
