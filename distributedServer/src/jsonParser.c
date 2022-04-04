@@ -138,3 +138,11 @@ char *createDhtJson(Dht dht) {
 
     return text;  
 }
+
+char *getType(char *text) {
+    cJSON *root = cJSON_Parse(text);
+    char *type = NULL;
+    saveString(root, "type", &type);
+    cJSON_Delete(root);
+    return type;
+}

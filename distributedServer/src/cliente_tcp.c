@@ -7,7 +7,7 @@
 
 #include "cliente_tcp.h"
 
-void enviarMensagem(char *IP_Servidor, unsigned short servidorPorta, char *mensagem) {
+int enviarMensagem(char *IP_Servidor, unsigned short servidorPorta, char *mensagem) {
 	int clienteSocket;
 	struct sockaddr_in servidorAddr;
 	char buffer[16];
@@ -27,9 +27,10 @@ void enviarMensagem(char *IP_Servidor, unsigned short servidorPorta, char *mensa
 	servidorAddr.sin_port = htons(servidorPorta);
 
 	// Connect
-	if(connect(clienteSocket, (struct sockaddr *) &servidorAddr, 
-							sizeof(servidorAddr)) < 0)
-		printf("Erro no connect()\n");
+	if(connect(clienteSocket, (struct sockaddr *) &servidorAddr, sizeof(servidorAddr)) < 0) {
+		close(clienteSocket);
+		return 0;
+	}
 
 	tamanhoMensagem = strlen(mensagem);
 
@@ -43,4 +44,5 @@ void enviarMensagem(char *IP_Servidor, unsigned short servidorPorta, char *mensa
 		totalBytesRecebidos += bytesRecebidos;
 	}
 	close(clienteSocket);
+	return 1;
 }

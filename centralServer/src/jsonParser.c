@@ -133,3 +133,19 @@ void readDhtInfo(Dht *dht, char *text) {
     dht->humidity = cJSON_GetObjectItem(root, "humidity")->valuedouble;
     cJSON_Delete(root);
 }
+
+void addType(char **text, char *type) {
+    cJSON *root = cJSON_Parse(*text);
+    cJSON_AddItemToObject(root, "type", cJSON_CreateString(type));
+    free(*text);
+    *text = cJSON_Print(root);
+    cJSON_Delete(root);
+}
+
+char *createType(char *message) {
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddItemToObject(root, "type", cJSON_CreateString(message));
+    char *out = cJSON_Print(root);
+    cJSON_Delete(root);
+    return out;
+}

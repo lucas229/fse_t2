@@ -15,29 +15,39 @@ NetworkInfo netInfo = {0, 0, 0, 0, 0};
 Sensor *outputs = NULL;
 Sensor *inputs = NULL;
 Dht dht = {0, 0, 0, -1, -1};
-int outputsSize = 0, inputsSize = 0, entryIndex = -1, exitIndex = -1;
+int outputsSize = 0, inputsSize = 0, entryIndex = -1, exitIndex = -1, stop = 0, running = 0;
+pthread_t id1, id2;
 
 void initServer() {
     char *text = readFile();
     readConfigs(text);
 
-    pthread_t id1, id2;
-    pthread_create(&id1, NULL, &listenTcp, NULL);
-
     addType(&text, "Connection");
     addPort(&text, netInfo.distServerPort);
-    enviarMensagem(netInfo.centralServerIp, netInfo.centralServerPort, text);
-    free(text);
+    printf("Aguardando servidor central.\n");
+    while(!enviarMensagem(netInfo.centralServerIp, netInfo.centralServerPort, text) && !stop) {
+        sleep(1);
+    }
 
-    findCountingSensors();
-    wiringPiSetupGpio();
-    pthread_create(&id2, NULL, &readDht, NULL);
-    readSensors();
+    if(!stop) {
+        printf("Servidor central conectado.\n");
+        free(text);
 
-    pthread_join(id1, NULL);
-    pthread_join(id2, NULL);
+        findCountingSensors();
+        wiringPiSetupGpio();
+
+        pthread_create(&id1, NULL, &readSensors, NULL);
+        pthread_create(&id2, NULL, &readDht, NULL);
+        running = 1;
+        listenTcp();
+
+        pthread_cancel(id1);
+        pthread_join(id1, NULL);
+        pthread_cancel(id2);
+        pthread_join(id2, NULL);
+        encerrarServidor();
+    }
     freeData();
-    encerrarServidor();
 }
 
 void *readDht(void *arg) {
@@ -52,26 +62,34 @@ void *readDht(void *arg) {
     }
 }
 
-void *listenTcp(void *arg) {
+void listenTcp() {
     configurarServidor(netInfo.distServerPort);
-    while(1) {
+    int stop = 0;
+    while(!stop) {
         char *text = aguardarMensagem();
-        Status *statuses = NULL;
-        initJson(text);
-        int size = parseStatusArray(&statuses, "outputs");
-        clearJson();
-        for(int i = 0; i < size; i++) {
-            for(int j = 0; j < outputsSize; j++) {
-                if(statuses[i].gpio == outputs[j].gpio) {
-                    pinMode(outputs[j].gpio, OUTPUT);
-                    digitalWrite(outputs[j].gpio, statuses[i].status);
-                    outputs[j].status = statuses[i].status;
-                    break;
+        char *type = getType(text);
+        if(strcmp(type, "Sensor") == 0) {
+            Status *statuses = NULL;
+            initJson(text);
+            int size = parseStatusArray(&statuses, "outputs");
+            clearJson();
+            for(int i = 0; i < size; i++) {
+                for(int j = 0; j < outputsSize; j++) {
+                    if(statuses[i].gpio == outputs[j].gpio) {
+                        pinMode(outputs[j].gpio, OUTPUT);
+                        digitalWrite(outputs[j].gpio, statuses[i].status);
+                        outputs[j].status = statuses[i].status;
+                        break;
+                    }
                 }
             }
+            free(statuses);
+        } else if(strcmp(type, "Disconnect") == 0) {
+            printf("Servidor central desconectado.\n");
+            stop = 1;
         }
         free(text);
-        free(statuses);
+        free(type);
     }
 }
 
@@ -99,7 +117,7 @@ void findCountingSensors() {
     }
 }
 
-void readSensors() {
+void *readSensors(void *arg) {
     for(int i = 0; i < inputsSize; i++) {
         pinMode(inputs[i].gpio, INPUT);
     }
@@ -191,4 +209,17 @@ void freeData() {
     }
     free(inputs);
     free(outputs);
+}
+
+void stopServer() {
+    stop = 1;
+    if(running) {
+        pthread_cancel(id1);
+        pthread_join(id1, NULL);
+        pthread_cancel(id2);
+        pthread_join(id2, NULL);
+        encerrarServidor();
+    }
+    freeData();
+    exit(0);
 }

@@ -17,7 +17,7 @@ Sensor *inputs[MAX];
 Dht dht[MAX];
 int outputsSize[MAX] = {0}, inputsSize[MAX] = {0}, entryIndex[MAX] = {-1}, exitIndex[MAX] = {-1}, connections = 0;
 int stop = 0, selectedServer = -1;
-pthread_t id1 = -1, id2 = -1, id3 = -1, alarmThread = -1, userAlarmThread;
+pthread_t id1 = -1, id2 = -1, alarmThread = -1, userAlarmThread;
 int totalCounting = 0, secondCounting = 0, firstPort = -1, secondPort = -1;
 int sprinklerServer = -1;
 int alarmSound[MAX] = {0}, userAlarm = 0;
@@ -273,6 +273,7 @@ void enableDevices(int index, int status) {
         outputs[index][pins[i]].status = status;
         logData(netInfo[index].serverName, outputs[index][pins[i]].tag, outputs[index][pins[i]].status);
     }
+    addType(&text, "Sensor");
     enviarMensagem(netInfo[index].distServerIp, netInfo[index].distServerPort, text);
     free(text);
 }
@@ -282,6 +283,7 @@ void changeStatus(int pin) {
     char *text = createOutputsJson(&outputs[selectedServer][0], pins, 1, "outputs", -1);
     outputs[selectedServer][pin].status = !outputs[selectedServer][pin].status;
     logData(netInfo[selectedServer].serverName, outputs[selectedServer][pin].tag, outputs[selectedServer][pin].status);
+    addType(&text, "Sensor");
     enviarMensagem(netInfo[selectedServer].distServerIp, netInfo[selectedServer].distServerPort, text);
     free(text);
 }
@@ -290,6 +292,11 @@ void exitServer() {
     pthread_cancel(id1);
     pthread_join(id1, NULL);
     endwin();
+    char *text = createType("Disconnect");
+    for(int i = 0; i < connections; i++) {
+        enviarMensagem(netInfo[i].distServerIp, netInfo[i].distServerPort, text);
+    }
+    free(text);
     encerrarServidor();
     freeData();
 }
@@ -341,6 +348,7 @@ void updateStatuses(int port, char *key) {
                         int pins[] = {pin};
                         char *text = createOutputsJson(&outputs[sprinklerServer][0], pins, 1, "outputs", 1);
                         outputs[sprinklerServer][pin].status = !outputs[sprinklerServer][pin].status;
+                        addType(&text, "Sensor");
                         enviarMensagem(netInfo[sprinklerServer].distServerIp, netInfo[sprinklerServer].distServerPort, text);
                         free(text);
                         if(!isAlarmOn()) {

@@ -44,5 +44,7 @@ int parseStatusArray(Status **statuses, char *key);
 char *getType(char *text);
 int getPort(char *text);
 void readDhtInfo(Dht *dht, char *text);
+void addType(char **text, char *type);
+char *createType(char *message);
 
 #endif
