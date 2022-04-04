@@ -45,5 +45,6 @@ void addType(char **text, char *type);
 void addPort(char **text, int port);
 char *createDhtJson(Dht dht);
 char *getType(char *text);
+char *createType(char *message);
 
 #endif

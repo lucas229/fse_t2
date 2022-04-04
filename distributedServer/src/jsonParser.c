@@ -146,3 +146,11 @@ char *getType(char *text) {
     cJSON_Delete(root);
     return type;
 }
+
+char *createType(char *message) {
+    cJSON *root = cJSON_CreateObject();
+    cJSON_AddItemToObject(root, "type", cJSON_CreateString(message));
+    char *out = cJSON_Print(root);
+    cJSON_Delete(root);
+    return out;
+}

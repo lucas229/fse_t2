@@ -10,8 +10,12 @@ void handleSignal(int signal) {
     }
 }
 
-int main() {
-    signal(SIGINT, &handleSignal);
-	initServer();
+int main(int argc, char *argv[]) {
+    if(argc != 2) {
+        printf("Forma correta: %s make run JSON=<nome_do_arquivo.json>\n", argv[0]);
+    } else {
+        signal(SIGINT, &handleSignal);
+	    initServer(argv[1]);
+    }
     return 0;
 }

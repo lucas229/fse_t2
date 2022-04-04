@@ -18,8 +18,8 @@ Dht dht = {0, 0, 0, -1, -1};
 int outputsSize = 0, inputsSize = 0, entryIndex = -1, exitIndex = -1, stop = 0, running = 0;
 pthread_t id1, id2;
 
-void initServer() {
-    char *text = readFile();
+void initServer(char *fileName) {
+    char *text = readFile(fileName);
     readConfigs(text);
 
     addType(&text, "Connection");
@@ -176,8 +176,9 @@ void checkOutputStatus(int *pins, int *size, int index) {
     }
 }
 
-char *readFile() {
-    FILE *file = fopen("configs/configuracao_andar_terreo.json", "r");
+char *readFile(char *fileName) {
+
+    FILE *file = fopen(fileName, "r");
     if(file == NULL) {
         return NULL;
     }
@@ -220,6 +221,10 @@ void stopServer() {
         pthread_join(id2, NULL);
         encerrarServidor();
     }
+    char *text = createType("Disconnect");
+    addPort(&text, netInfo.distServerPort);
+    enviarMensagem(netInfo.centralServerIp, netInfo.centralServerPort, text);
+    free(text);
     freeData();
     exit(0);
 }

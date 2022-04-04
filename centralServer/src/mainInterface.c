@@ -15,7 +15,7 @@ NetworkInfo netInfo[MAX];
 Sensor *outputs[MAX];
 Sensor *inputs[MAX];
 Dht dht[MAX];
-int outputsSize[MAX] = {0}, inputsSize[MAX] = {0}, entryIndex[MAX] = {-1}, exitIndex[MAX] = {-1}, connections = 0;
+int outputsSize[MAX] = {0}, inputsSize[MAX] = {0}, entryIndex[MAX] = {-1}, exitIndex[MAX] = {-1}, connections = 0, serverStatus[MAX] = {0};
 int stop = 0, selectedServer = -1;
 pthread_t id1 = -1, id2 = -1, alarmThread = -1, userAlarmThread;
 int totalCounting = 0, secondCounting = 0, firstPort = -1, secondPort = -1;
@@ -49,6 +49,8 @@ void *listenTcp(void *arg) {
         } else if(strcmp(type, "DHT") == 0) {
             int port = getPort(text);
             readDhtInfo(&dht[findByPort(port)], text);
+        } else if(strcmp(type, "Disconnect") == 0) {
+            serverStatus[findByPort(getPort(text))] = 0;
         }
         free(text);
         free(type);
@@ -79,14 +81,18 @@ void serverSelectionMenu() {
         attroff(A_BOLD);
 
         for(int i = 0; i < connections; i++) {
-            printw("[%d] %s\n", i + 1, netInfo[i].serverName);
+            printw("[%d] %s", i + 1, netInfo[i].serverName);
+            if(serverStatus[i] == 0) {
+                printw(" (Desconectado)");
+            }
+            printw("\n");
         }
         
         if(connections == 0) {
             printw("\nNão há servidores disponíveis no momento.\n");
         }
 
-        printw("\n[%d] Alarme de seguranca\n", connections + 1);
+        printw("\n[%d] Ligar/Desligar alarme de seguranca\n", connections + 1);
         printw("[%d] Ligar todas as cargas\n", connections + 2);
         printw("[%d] Desligar todas as cargas\n\n", connections + 3);
 
@@ -142,6 +148,9 @@ void serverSelectionMenu() {
                 }
             } else if(command >= 0 && command < connections) {
                 selectedServer = command;
+                if(serverStatus[selectedServer] == 0) {
+                    continue;
+                }
                 serverMenu();
                 timeout(1000);
             } else if(command == connections + 1) {
@@ -156,6 +165,9 @@ void serverSelectionMenu() {
 
 int isAlarmDeviceActive() {
     for(int i = 0; i < connections; i++) {
+        if(!serverStatus[i]) {
+            continue;
+        }
         for(int j = 0; j < inputsSize[i]; j++) {
             if(strcmp(inputs[i][j].type, "janela") == 0 || strcmp(inputs[i][j].type, "porta") == 0 || strcmp(inputs[i][j].type, "presenca") == 0) {
                 if(inputs[i][j].status == 1) {
@@ -178,6 +190,10 @@ void serverMenu() {
     refresh();
     while(1) {
         erase();
+
+        if(serverStatus[selectedServer] == 0) {
+            break;
+        }
 
         int row = 0;
         attron(A_BOLD);
@@ -272,7 +288,9 @@ void serverMenu() {
 
 void enableAllDevices(int status) {
     for(int i = 0; i < connections; i++) {
-        enableDevices(i, status);
+        if(serverStatus[i]) {
+            enableDevices(i, status);
+        }
     }
 }
 
@@ -325,6 +343,7 @@ void addConnection(char *text) {
     findCountingSensors();
     findPorts();
     findSprinklerSensor();
+    serverStatus[connections] = 1;
     connections++;
 }
 

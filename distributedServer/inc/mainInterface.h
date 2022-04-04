@@ -1,9 +1,9 @@
 #ifndef MAIN_INTERFACE
 #define MAIN_INTERFACE
 
-void initServer();
+void initServer(char *fileName);
 void listenTcp();
-void readConfigs(char *text);
+void readConfigs(char *fileName);
 void findCountingSensors();
 void *readSensors(void *arg);
 void checkInputStatus(int *pins, int *size, int index);
